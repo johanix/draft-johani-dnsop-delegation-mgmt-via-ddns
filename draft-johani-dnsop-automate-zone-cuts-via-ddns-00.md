@@ -1,7 +1,7 @@
 ---
-title: "TLD Zone Pipeline: Requirements And Design Principles"
+title: "Automating DNS Delegation Information via DDNS"
 abbrev: TLD Zone Pipeline Requirements
-docname: draft-johani-tld-zone-pipeline-01
+docname: draft-johani-dnsop-automate-zone-cuts-via-ddns-00
 date: {DATE}
 category: std
 
@@ -19,11 +19,6 @@ author:
     name: Johan Stenstam
     organization: The Swedish Internet Foundation
     email: johan.stenstam@internetstiftelsen.se
- -
-    ins: J. Schlyter
-    name: Jakob Schlyter
-    org: Kirei AB
-    email: jakob@kirei.se
 
 normative:
 
@@ -31,23 +26,24 @@ informative:
 
 --- abstract
 
-Today most TLD registries publish DNSSEC signed zones. The sequence of steps
-from generating the unsigned zone, via DNSSEC signing and various types of
-verification is referred to as the "zone pipeline".
+Delegation information (i.e. the NS RRset, possible glue, possible DS
+rrecords) should always be kept in sync between child zone and parent
+zone. However, in practice that is not always the case.
 
-The robustness and correctness of the zone pipeline is of crucial
-importance and the zone pipeline is one of the most critical parts of
-the operations of a TLD registry.
+When the delegation information is not in sync the child zone is
+usually working fine, but without the amount of redundancy that the
+zone owner likely expects to have. Hence, should any further problems
+ensue it could have catastropic consequences.
 
-The goal of this document is to describe the requirements that the
-.SE Registry choose in preparation for the implementation of a new zone
-pipeline. The document also describes some of the design consequences that
-follow from the requirements. Hence this document is intended to work as a
-guide for understanding the actual implementation, which is planned to be
-released as open source.
+The DNS name space has lived with this problem for decades and it
+never goes away. Or, rather, it will never go away until a fully
+automated mechanism for how to keep the information in sync
+automatically is deployed.
+
+This document proposes such a mechanism.
 
 TO BE REMOVED: This document is being collaborated on in Github at:
-[https://github.com/johanix/draft-johani-tld-zone-pipeline](https://github.com/johanix/draft-johani-tld-zone-pipeline).
+[https://github.com/johanix/draft-johani-dnsop-automate-zone-cuts-via-ddns](https://github.com/johanix/draft-johani-dnsop-automate-zone-cuts-via-ddns).
 The most recent working version of the document, open issues, etc. should all be
 available there.  The authors (gratefully) accept pull requests.
 
@@ -55,30 +51,25 @@ available there.  The authors (gratefully) accept pull requests.
 
 # Introduction
 
-Today most TLD registries publish DNSSEC signed zones. This typically
-leads to a zone production "pipeline" that consists of several steps,
-including generation of the unsigned zone, signing of the zone and
-various types of verifications that the zone is correct before
-publication on the Internet.
+For DNSSEC signed child zones with TLD registries as parents there is
+an emerging trend towards running so-called "CDS scanners" and "CSYNC
+scanners" in the parent. 
 
-In some cases, including the .SE Registry, the zone pipeline was not
-the result of a clear requirements process, nor was it the result of a
-concious design and implementation. Rather, it was the result of
-combining various tools in a mostly ad-hoc way that achieved the goal
-of moving the zone via signing and verifications towards publication.
+These scanners detect publication of CDS
+records (the child signalling a desire for an update to the DS RRset
+in the parent) and/or a CSYNC record (the child signalling a desire
+for an update to the NS RRset or, possibly, in-bailiwick glue in the
+parent.
 
-When a critical part of the operation of a TLD registry is the result
-of an ad-hoc process there are likely to be hidden risks. That was the
-case for the .SE registry, which had a serious incident in February
-2022. Because of that incident, .SE decided to re-evaluate the
-requirements on the zone pipeline and then create a more robust
-implementation from scratch.
+Thses scanners have a number of drawbacks, inluding being inefficient
+and slow. They are only applicable to DNSSEC-signed child zones and
+they add significant complexity to the parent operations. But given
+that, they do work.
 
-This document aims to describe the requirements for zone production
-(also known as "zone pipeline") that the .SE Registry choose in
-preparation for the implementation of the new zone pipeline. It is
-developed for the needs of the .SE and .NU TLD Registries, but the
-conclusions are intended to be generally applicable.
+Generalized DNS Notifications (see
+draft-thomassen-dnsop-generalized-dns-notify-NN) propose a method to
+alleviate the inefficiency and slowness. But the DNSSEC-only
+requirement and the complexity remain.
 
 ## Requirements Notation
 
@@ -88,69 +79,70 @@ The key words "**MUST**", "**MUST NOT**", "**REQUIRED**", "**SHALL**",
 are to be interpreted as described in BCP 14 {{!RFC2119}} {{!RFC8174}}
 when, and only when, they appear in all capitals, as shown here.
 
-# Purpose
+# What is a "NOTIFY"?
 
-A TLD Registry has a total responsibility towards society and the
-Internet community to ensure, at any given time, public access to
-correct versions of the DNS zones under their management. In order to
-meet this commitment, three components are essentially required:
+A NOTIFY (as of RFC1996) is a message, in DNS packet format, that
+allows one party to notify another that some DNS data elsewhere has
+changed. It is only a hint and the recipient may ignore it. But if
+the recipient does listen to the NOTIFY it should make its own lookups
+to veryfy what has changed and whether that should trigger any changes
+in the DNS data maintained by the recipient.
 
-* Generation of unsigned zones from the Registry System.
-* Quality control and signing of the zones.
-* Publication of resulting signed zones.
+I.e. the NOTIFY is essentially a message that says "some data has
+change over there; I suggest that you go and check it out yourself".
 
-The first step is handled by the Registry System. The third step is
-handled by a combination of external providers of authoritative DNS
-service and in-house DNS service. Both of these steps are out-of-scope
-for this document
+# What is a "DNS Dynamic Update"?
 
-The sole purpose of this document is to provide a correct set of
-requirements for the second step, between zone generation in the
-Registry System and zone publication on the public Internet.
+A DNS Dynamic Update is a message, in DNS packet format, that allows
+one party to notify another that some DNS data under the recipients
+management should change. The difference to the NOTIFY is that the
+dynamic update contains the exact change that should (in the opinion
+of the sender) be applied to the recipients DNS data. Furthermore, for
+*secure* Dynamic Updates, the message also contains proof why the
+update should be trusted (in the form of a digital signature by a key
+that the recipient trusts).
+
+In this document the term "Dynamic Update" or "DDNS Update" implies
+*secure* dynamic update. Furthermore this document implies that the
+signature algorithms are always based on assymetric crypto keys, using
+the same algorithms as are being used for DNSSEC. I.e. by using the
+right algorithm the resulting signatures will be as strong as
+DNSSEC-signatures.
 
 # Terminology
 
-Upstream
-: Further up in the zone pipeline, i.e. in the direction of the Registry System.
+SIG(0)
+: An assymmetric signing algorithm that allows the recipient to only
+  need to know the public key to verify a signature created by the
+  senders private key.
 
-Downstream
-: Further down the zone pipeline, i.e. towards the public Internet.
+# Updating Delegation Information via DDNS Updates
 
-# Basic Design Principles
+This is not a new idea. This functionality has been available for
+years in a least one DNS implementation (BIND9). However, while used
+extensively inside organisations it has not seen much use across
+organisational boundaries. And zone cuts, almost by definition,
+usually cuts across such boundaries.
 
-A number of fundamental principles are defined for the design of the
-system. The intention of these principles is to minimize the risk that
-the zone data (as generated by the Registry System) can somehow change
-at any stage through the zone pipeline.
+When sending a DDNS update it is necessary to know where to send
+it. Inside an organisation this information is usually readily
+available. But outside it is not. And even if the sender would know
+where to send the update, it is not at all clear that the destination
+is reachable to the sender (the parent primary is likely to be
+protected by firewalls and other measures). 
 
-* Critical path for zone data must be via proven and well-reviewed
-  standard software. This critical path is called the "zone pipeline".
+This constitutes a problem for using DDNS Updates across zone cuts.
 
-  Rationale: Using well-established software used by others in the
-  industry reduces development needs for the Registry. By not being
-  critically dependent on self-developed software, the dependence on
-  individuals is reduced.
+Another concern is that traditionally DDNS updates are sent to a
+primary nameserver, and if the update signture verifies the update is
+automatically applied to the DNS zone. This is often not an acceptable
+mechanism. The recipient may, for good reason, require additional
+policy checks and likely an audit trail. Finally, the change should
+in many cases not be applied to the running zone but rather to some sort of
+provisioning system.
 
-* Standardized protocols shall be used as far as possible.
-
-  Rationale: Individual components must be replaceable as easily as
-  possible.
-
-* Consequences of inaccuracies in custom software must be limited as far
-  as possible and must never affect published zone data.
-
-  Rationale: Obvious opportunities for risk minimization of a critical
-  system within the business.
-
-* Verification, signing and publication of the zone must be able to take
-  place independently and without dependence on infrastructure outside
-  the operating facility.
-
-  Rationale: The ability to always maintain and publish an updated
-  zone is the most important responsibility of the Registry. To ensure
-  the ability to always maintain this ability the zone production must
-  be self-contained.
-
+This creates another problem for using DDNS Updates for managing
+delegation information.
 
 # Interface to the Registry
 
