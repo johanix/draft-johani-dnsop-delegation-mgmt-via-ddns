@@ -1,6 +1,6 @@
 ---
 title: "Automating DNS Delegation Information via DDNS"
-abbrev: TLD Zone Pipeline Requirements
+abbrev: DDNS Updates of Delegation Information
 docname: draft-johani-dnsop-automate-zone-cuts-via-ddns-00
 date: {DATE}
 category: std
