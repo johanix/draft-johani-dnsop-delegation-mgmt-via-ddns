@@ -27,7 +27,7 @@ informative:
 --- abstract
 
 Delegation information (i.e. the NS RRset, possible glue, possible DS
-rrecords) should always be kept in sync between child zone and parent
+records) should always be kept in sync between child zone and parent
 zone. However, in practice that is not always the case.
 
 When the delegation information is not in sync the child zone is
@@ -51,25 +51,34 @@ available there.  The authors (gratefully) accept pull requests.
 
 # Introduction
 
-For DNSSEC signed child zones with TLD registries as parents there is
-an emerging trend towards running so-called "CDS scanners" and "CSYNC
+For DNSSEC signed child zones with TLD registries as parents there is 
+an emerging trend towards running so-called "CDS scanners" and "CSYNC 
 scanners" in the parent. 
 
-These scanners detect publication of CDS
-records (the child signalling a desire for an update to the DS RRset
-in the parent) and/or a CSYNC record (the child signalling a desire
-for an update to the NS RRset or, possibly, in-bailiwick glue in the
-parent.
+These scanners detect publication of CDS records (the child signalling
+a desire for an update to the DS RRset in the parent) and/or a CSYNC
+record (the child signalling a desire for an update to the NS RRset
+or, possibly, in-bailiwick glue in the parent.
 
-Thses scanners have a number of drawbacks, inluding being inefficient
+The scanners have a number of drawbacks, including being inefficient
 and slow. They are only applicable to DNSSEC-signed child zones and
 they add significant complexity to the parent operations. But given
 that, they do work.
 
 Generalized DNS Notifications (see
 draft-thomassen-dnsop-generalized-dns-notify-NN) propose a method to
-alleviate the inefficiency and slowness. But the DNSSEC-only
+alleviate the inefficiency and slowness of scanners. But the DNSSEC
 requirement and the complexity remain.
+
+This document proposes an alternative mechanism to automate the
+updating of delegation information in the parent zone for a child
+zone. 
+
+This alternative mechanism shares the property of being efficient
+and provide rapid convergence (similar to generalized notifications in
+conjuction with scanners). Furthermore, it has the advantages of not
+requiring any scanners in the parent at all and also not being
+dependent on the child (and parent) being DNSSEC-signed.
 
 ## Requirements Notation
 
@@ -85,11 +94,24 @@ A NOTIFY (as of RFC1996) is a message, in DNS packet format, that
 allows one party to notify another that some DNS data elsewhere has
 changed. It is only a hint and the recipient may ignore it. But if
 the recipient does listen to the NOTIFY it should make its own lookups
-to veryfy what has changed and whether that should trigger any changes
-in the DNS data maintained by the recipient.
+to verify what has changed and whether that should trigger any changes
+in the DNS data provided by the recipient.
 
 I.e. the NOTIFY is essentially a message that says "some data has
 change over there; I suggest that you go and check it out yourself".
+
+# What is a "Generalized NOTIFY"?
+
+This is a proposed extension to the use of RFC1996 NOTIFY. The
+extension covers using NOTIFY(CSYNC) to signal the publication of a CSYNC
+record in the child zone (prompting the parent zone to look it up and
+make a decison on whether to update the delegation information for the
+child zone based upon what it found. Another type is NOTIFY(CDS) which
+does the same, except it is used to prompt the parent to decide
+whether to update the child DS RRset (or not).
+
+A generalized NOTIFY is typically sent across a zone cut and the
+recipient is likely a CSYNC or CDS scanner.
 
 # What is a "DNS Dynamic Update"?
 
@@ -108,6 +130,16 @@ signature algorithms are always based on assymetric crypto keys, using
 the same algorithms as are being used for DNSSEC. I.e. by using the
 right algorithm the resulting signatures will be as strong as
 DNSSEC-signatures.
+
+DDNS Updates can be used to update any information in a zone (subject
+to the policy of the recipient). But in the special case where the
+data that is updated is the delegation information for a child zone
+and it is sent across a zone cut (i.e. the child sends it to the
+parent), it acts as a glorified generalized NOTIFY.
+
+The DDNS update in this case is essentially a message that says "some
+data has changed; this is the exact change; here is the proof that the
+change is authentic, please verify this signature".
 
 # Terminology
 
@@ -144,239 +176,63 @@ provisioning system.
 This creates another problem for using DDNS Updates for managing
 delegation information.
 
-# Interface to the Registry
+# How to Locate The Target for a generalized NOTIFY.
 
-Interface to the Registry System must be done according to
-standardized protocols. This requirement has the following
-consequences:
+The generalized notifications I-D proposes a new RR type, tentatively
+with the mnemonic NOTIFY that has the following format:
 
-* Zone data must be retrieved from the Registry System using AXFR and
-  IXFR {{!RFC5936}}.
+{parent zone}   IN  NOTIFY  {RRtype} {scheme} {port} {target}
 
-* The request for publication of new zone data must be notified with DNS
-  NOTIFY {{!RFC1995}}.
+where {parent zone} is the domain name of the parent zone and
+{target} is the domain name of the recipient of the NOTIFY. {RRtype}
+is typically "CDS" or "CSYNC" in the case where delegation
+information should be updated (there are also other uses of
+generalized notifications). Finally, {scheme} is a number to indicate
+the type of notification mechanism to use. Scheme=1 is defined as
+"send a generalized NOTIFY".
 
-* Zone data published by the Registry System must contain a checksum in
-  the form of ZONEMD {{!RFC8976}}.
+Example for where children of "parent." should send NOTIFY(CSYNC):
 
-# Local Updates
+parent. IN NOTIFY CSYNC 1 5301 csync-scanner.parent.
 
-During normal operation, no changes to the zone data retrieved from
-the Registry may take place. However, there may be situations where
-the Registry is not reachable (nor is it expected to be reachable
-within a reasonable time) and where local updates of zone data must be
-able to be carried out. This can for example, be redirection of
-socially important infrastructure.
+This record is looked up by the child primary nameserver at the time
+that the child primary is about to publish a new CSYNC record in the
+child zone (or the equivalent for a CDS). The interpretation is:
 
-In a crisis situation (emergency operation), zone updates must be able
-to take place locally. Updates that take place in this way are
-introduced into regular systems as soon as possible. Return to normal
-operation may only take place after all changes made during emergency
-operation have been introduced into the regular system.
+"Send a NOTIFY(CSYNC) to csync-scanner.parent. on port 5301".
 
-Local updates must be applied using a strict and traceable method. It
-must be clear at all times whether local updates have been applied,
-what these are and who requested them.
+# How to Locate the Target for a DDNS Update.
 
-In cases where local updates have taken place, ZONEMD MUST be updated.
+This document proposes the definition of a new {scheme} for the same
+record that is used for generalized NOTIFY. Scheme=2 is here defined
+as "send a DDNS Update".
 
-N.B. Local updates are an extraordinary measure and must not be used
-except in emergency situations. Procedures for who may request these
-are decided by the Internet foundation's crisis management.
+Example:
 
-# Ingress Verification
+parent.  IN NOTIFY ANY 2 5302 ddns-receiver.parent.
 
-Before signing, a number of checks must be performed on the zone
-contents. The reason why checking must take place before signing is to
-ensure that the zone being signed is always correct and can thus
-continue to be re-signed in the event of problems upstream. The exact
-checks to be carried out are set out in a separate specification and
-are subject to local policy.
+This record is looked up by the child primary nameserver at the time
+that the delegation information for the child zone changes (typically
+causing the child to publish a new CSYNC record and/or a new CDS
+record). The interpretation is:
 
-## Requirements on ingress verification
+"Send a DDNS Update to ddns-receiver.parent. on port 5302"
 
-* The ingress verification must prevent an updated incorrect zone from
-  being signed. An already approved previous version of the zone must
-  continue to be signed until a new zone is approved.
 
-* New zone controls must be able to be added without the component for
-  ingress verification of zone data needing to be redesigned
-
-* The interface from the zone pipeline to the ingress verification
-  function must be DNS AXFR. This means that all controls must
-  logically sit to the side and not be part of the critical
-  path. I.e. the verification code is not part of the zone pipeline.
-
-* All zone controls, self-developed or imported, must have local
-  ownership within the organization.
-
-## Examples of ingress verification checks
-
-* Check that the zone data is complete.
-
-* Check that the ZONEMD, which has been generated by the registry system, is correct
-
-* Check that delegation information for the zone itself is correct.
-
-* Check that the delta (i.e. the difference) between the current zone
-  and the previous version is within approved limits.
-
-* Check that certain crucial records are present and correct (the
-  zone’s SOA record is one example).
-
-# Signing
-
-The task of the signing step is to keep an approved and received zone
-signed for an arbitrary length of time until a new zone is received
-from upstream (i.e. from Registry via Ingress Verification).
-
-## Key management
-
-The following requirements apply to the management of cryptographic
-keys for signing zone data:
-
-* The key material must be stored and used
-  in an HSM that meets the security requirements set by the CISO.
-
-* The interface for accessing the key material SHALL be PKCS#11.
-
-* All keys must, to facilitate replication between different signing
-  entities, be generated in advance.In order to facilitate replication
-  between different signing entities, all keys must be generated in
-  advance.
-
-* Exchange of KSK can be initiated automatically or manually, and is
-  automatically terminated when the DS record in the parent zone is
-  updated (after according to an appropriate safety margin).
-
-* Changing the KSK may only be completed if the DS record in the
-  parent zone is updated.
-
-* Replacement of ZSK must be done automatically.
-
-## Zone signing
-
-The following requirements apply to signing zone data:
-
-* Signing must be done using key material via PKCS#11.
-
-* The signing function must support algorithm rollover, e.g,. from RSA/SHA-256 to ECC/P-256/SHA-256.
-
-* Signing must be done with either NSEC or NSEC3 semantics.
-
-* If NSEC3 salt is used, the salt must be periodically changed automatically.
-
-* Change of DNSSEC signing semantics from NSEC to NSEC3 and vice versa
-  must be possible automatically.
-
-* Previous signatures that are valid within a configurable time window
-  shall be reused when re-signing, in order to reduce the rate of
-  change on the zone.
-
-* The signing function shall recreate the ZONEMD RR per {{!RFC8976}} after
-  the zone has been signed.
-
-# Egress Verification
-
-After signing, several checks must be performed on the zone contents.
-Apart from the obvious validation of generated DNSSEC signatures it is
-also important to ensure that the signing step only added DNSSEC-
-information without in any way modifying the unsigned data.
-
-## Requirements on egress verification
-
-* All generated DNSSEC signatures (RRSIG records) must be validated.
-
-* The NSEC (or NSEC3) chain must be verified to be complete.
-
-* The non-DNSSEC content of the signed zone must be provably identical
-  to the corresponding unsigned zone that entered the signing step.
-
-## Examples of egress verification checks
-
-* Verify the zone with other software than was used for signing.
-
-* Remove all data added by the signing step and check the ZONEMD value over that data with the ZONEMD from before the signing.
-
-# Distribution
-
-The following requirements apply to distribution of the signed zone:
-
-* The signed zone must be retrieved from signing and egress
-  verification to the distribution points with AXFR (not IXFR).
-  
-  It must be AXFR, as otherwise it is not possible to switch from one
-  upstream to another in the distribution points (the IXFR from one
-  upstream will not apply cleanly to a zone from another upstream).
-
-* The signed zone shall be distributed to the designated authoritative
-  name server services using AXFR/IXFR.
-
-* To reduce convergence time towards the public Internet, the signed
-  zone must be distributed with IXFR as far as possible.
-
-* At least two complete zone publishing chains must be operational and
-  always active.
-  
-  This is a policy decision, based on the strong intent to avoid all 
-  single points of failure, including in the signing operation.
-
-* Choice of zone publishing chain is an active configuration choice
-  in each distribution point and must always be the same for all
-  distribution points.
-
-* The signed zone from the selected zone publishing chain must be
- retrieved by all distribution points in all operating facilities.
-
-
-# Resulting Design Consequences
-
-* The requirement on being able to prove that no unsigned data has
-  been modified during signing is most efficiently fullfilled by
-  computing the ZONEMD checksum on the unsigned data after signing
-  (i.e. the signed zone modulo the DNSSEC related records DNSKEY,
-  RRSIG. NSEC, NSEC3, NSEC3PARAM, apex CDS and CDNSKEY) and comparing
-  that to the ZONEMD checksum for the corresponding unsigned zone.
-
-* The ZONEMD checksums need to be stored outside the zone pipeline,
-  indexed by the unsigned zone that each checksum corresponds to.
-
-* The signed zone may (and will) change the SOA Serial independently
-  of the unsigned zone. For this reason the ZONEMD checksums can not
-  be stored using the SOA Serial as the index. Therefore a separate,
-  unique, identifier is attached to each new version of the zone as a
-  TXT record. A UUID is used as the identifier.
-
-* Each unsigned zone MUST have a ZONEMD and a UUID index to store it
-  under. Therefore changes to the unsigned zone via the local update
-  facility must update the UUID in addition to any other change that
-  is executed.
-
-* The Registry runs multiple, parallel zone pipelines for the same
-  zone with the requirement to be able to switch which pipeline is
-  "active" at any time. As the local update facility is responsible
-  for updating the UUID if a local change is needed, the same UUID
-  will identify the exact same zone in all pipelines.
-
-* The requirement that the zone pipeline only consists of proven and
-  widely used software forces all local and custom software (including
-  various tests and verification modules) to be located outside the
-  zone pipeline. This cause a need for a component inside the zone
-  pipeline with the ability to call an external "verifier" for
-  verifications. At present only one such component is known (the
-  authoritative nameserver NSD with its "verify:" attribute), but we
-  hope that there will be more alternatives in the future.
 
 # Security Considerations
 
-The correct generation and DNSSEC signing of a TLD zone is a matter of
-significant importance. As such requirements and methods for
-verification of correctness is an important matter that has previously
-not been much publically discussed.
+Any fully automatic mechanism to update the contents of a DNS zone
+opens up a potential vulnerability should the mechanism not be
+implemented correctly. 
 
-As a requirements specification this document aims to make this topic
-more public and visible with the intent of improving the correctness
-of the requirements via public review.
+In this case the definition of "correct" is a question for the
+receiver of the DDNS Update. This receiver should do the same checks
+and verifications as a CDS or CSYNC scanner does with the primary
+difference being that the signature validation is based on a single
+SIG(0) signature by a key that the receiver trusts, rather than a
+DNSSEC signature, that chains back to a DNSSEC trust anchor that a
+scanner trusts.
 
 # IANA Considerations
 
@@ -386,17 +242,18 @@ None
 
 # Acknowledgements
 
+* Peter Thomassen and I together came up with the location mechanism
+  for the generalized notifications, which this draft relies upon.
 
+* Mark Andrews provided the initial inspiration for writing some code
+  to experiment with the combination of the location mechanism from
+  the generalised notifications with DDNS Updates across zone cuts.
 
 --- back
 
 # Change History (to be removed before publication)
 
-* draft-johani-tld-zone-pipeline-00 
+* draft-johani-dnsop-automate-zone-cuts-via-ddns-00 
 
 > Initial public draft. 
 
-* draft-johani-tld-zone-pipeline-01
-
-> Security and IANA Considerations sections added.
-> Minor typos fixed. 
