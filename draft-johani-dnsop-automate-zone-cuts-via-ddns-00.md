@@ -148,7 +148,7 @@ SIG(0)
   need to know the public key to verify a signature created by the
   senders private key.
 
-# Updating Delegation Information via DDNS Updates
+# Updating Delegation Information via DDNS Updates.
 
 This is not a new idea. This functionality has been available for
 years in a least one DNS implementation (BIND9). However, while used
@@ -175,6 +175,9 @@ provisioning system.
 
 This creates another problem for using DDNS Updates for managing
 delegation information.
+
+Both problems are addressed by the proposed mechanism for locating the
+recipient of a generalized NOTIFY.
 
 # How to Locate The Target for a generalized NOTIFY.
 
@@ -218,29 +221,47 @@ record). The interpretation is:
 
 "Send a DDNS Update to ddns-receiver.parent. on port 5302"
 
+# What is the Use Case? 
 
+Because of the drawbacks of CDS and CSYNC scanners they are highly 
+unlikely to be able to fully automate the maintenance of delegation 
+information in parent zones. The primary reasons are the hard 
+requirement on DNSSEC in the child zones and the complexity cost of 
+operating the scanner infrastructure. In practice, scanners are likely 
+only realistic for parent zones that are operated by well-resourced 
+registries. 
 
-# Security Considerations
+All the parts of the DNS name space where the parent is smaller, and 
+more resource constrained would be able to automate the delegation 
+management via this mechanism without the requirement of operating 
+scanners. Also all parts of the name space where there are child zones 
+that are not DNSSEC-signed would be able to use this. 
+
+Obviously, also well-resourced and DNSSEC-signed parent zones would be 
+able to use this mechanism, but in those cases scanners plus 
+generalized notifications would also work. 
+
+# Security Considerations.
 
 Any fully automatic mechanism to update the contents of a DNS zone
 opens up a potential vulnerability should the mechanism not be
 implemented correctly. 
 
 In this case the definition of "correct" is a question for the
-receiver of the DDNS Update. This receiver should do the same checks
-and verifications as a CDS or CSYNC scanner does with the primary
-difference being that the signature validation is based on a single
-SIG(0) signature by a key that the receiver trusts, rather than a
-DNSSEC signature, that chains back to a DNSSEC trust anchor that a
-scanner trusts.
+receiver of the DDNS Update. The receiver should validate the
+authenticity of the update and then do the same checks and
+verifications as a CDS or CSYNC scanner does. The difference from the
+scanner is only in the validation: single SIG(0) signature by a key
+that the receiver trusts vs DNSSEC signature that chains back to a
+DNSSEC trust anchor that a scanner trusts.
 
-# IANA Considerations
+# IANA Considerations.
 
-None
+None.
 
 -------
 
-# Acknowledgements
+# Acknowledgements.
 
 * Peter Thomassen and I together came up with the location mechanism
   for the generalized notifications, which this draft relies upon.
