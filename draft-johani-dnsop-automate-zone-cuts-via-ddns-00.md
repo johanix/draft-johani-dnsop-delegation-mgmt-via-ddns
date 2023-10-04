@@ -104,21 +104,22 @@ the recipient does listen to the NOTIFY it should make its own lookups
 to verify what has changed and whether that should trigger any changes
 in the DNS data provided by the recipient.
 
-I.e. the NOTIFY is essentially a message that says "some data has
-change over there; I suggest that you go and check it out yourself".
-
 ## What is a "Generalized NOTIFY"?
 
 This is a proposed extension to the use of {{!RFC1996}} NOTIFY. The
 extension covers using NOTIFY(CSYNC) to signal the publication of a CSYNC
 record in the child zone (prompting the parent zone to look it up and
 make a decison on whether to update the delegation information for the
-child zone based upon what it found. Another type is NOTIFY(CDS) which
+child zone based upon what is found. Another type is NOTIFY(CDS) which
 does the same, except it is used to prompt the parent to decide
 whether to update the child DS RRset (or not).
 
-A generalized NOTIFY is typically sent across a zone cut and the
-recipient is likely a CSYNC or CDS scanner.
+A generalized NOTIFY is typically sent across a zone cut (from child
+to parent) and the recipient is likely a CSYNC or CDS scanner. In this
+case it is essentially a message that says:
+
+	"the delegation information for this child has changed; I suggest
+	that you go and check it out yourself"
 
 # What is a "DNS Dynamic Update"?
 
@@ -144,9 +145,11 @@ data that is updated is the delegation information for a child zone
 and it is sent across a zone cut (i.e. the child sends it to the
 parent), it acts as a glorified generalized NOTIFY.
 
-The DDNS update in this case is essentially a message that says "some
-data has changed; this is the exact change; here is the proof that the
-change is authentic, please verify this signature".
+The DDNS update in this case is essentially a message that says:
+
+	"the delegation information for this child zone has changed; here
+	is the exact change; here is the proof that the change is
+	authentic, please verify this signature"
 
 # Terminology
 
