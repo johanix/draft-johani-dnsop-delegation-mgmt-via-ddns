@@ -95,6 +95,26 @@ The key words "**MUST**", "**MUST NOT**", "**REQUIRED**", "**SHALL**",
 are to be interpreted as described in BCP 14 {{!RFC2119}} {{!RFC8174}}
 when, and only when, they appear in all capitals, as shown here.
 
+# Is there a Use Case?
+
+Because of the drawbacks of CDS and CSYNC scanners they are unlikely
+to be able to fully automate the maintenance of delegation information
+in all parent zones. The primary reasons are the hard requirement on
+DNSSEC in the child zones and the complexity cost of operating the
+scanner infrastructure. In practice, scanners are likely only
+realistic for parent zones that are operated by well-resourced
+registries.
+
+All the parts of the DNS name space where the parent is smaller and
+more resource constrained would be able to automate the delegation
+management via this mechanism without the requirement of operating
+scanners. Also all parts of the name space where there are child zones
+that are not DNSSEC-signed would be able to use this.
+
+Obviously, also well-resourced parent zones with DNSSEC-signed child
+zones would be able to use this DDNS-based mechanism, but in those
+cases scanners plus generalized notifications would also work.
+
 # What is a "NOTIFY"?
 
 A NOTIFY (as of {{!RFC1996}}) is a message, in DNS packet format, that
@@ -190,7 +210,7 @@ delegation information.
 Both problems are addressed by the proposed mechanism for locating the
 recipient of a generalized NOTIFY.
 
-# How to Locate The Target for a generalized NOTIFY.
+# Locating the Target for a generalized NOTIFY.
 
 The generalized notifications I-D proposes a new RR type, tentatively
 with the mnemonic NOTIFY that has the following format:
@@ -215,7 +235,7 @@ child zone (or the equivalent for a CDS). The interpretation is:
 
 `Send a NOTIFY(CSYNC) to csync-scanner.parent. on port 5301`
 
-# How to Locate the Target for a DDNS Update.
+# Locating the Target for a DDNS Update.
 
 This document proposes the definition of a new {scheme} for the same
 record that is used for generalized NOTIFY. Scheme=2 is here defined
@@ -254,27 +274,38 @@ single child, then resending the DDNS Update once or twice may be ok
 in transit). On the other hand, if the sender serves a large number of
 child zones below the same parent zone, then it may already know that
 the receiver for the DDNS Updates is not responding for any of the
-child zones, and then resending the update immediately is likely pointless.
+child zones, and then resending the update immediately is likely
+pointless.
 
-# What is the Use Case? 
+# Management of SIG(0) Public Keys
 
-Because of the drawbacks of CDS and CSYNC scanners they are unlikely
-to be able to fully automate the maintenance of delegation information
-in all parent zones. The primary reasons are the hard requirement on
-DNSSEC in the child zones and the complexity cost of operating the
-scanner infrastructure. In practice, scanners are likely only
-realistic for parent zones that are operated by well-resourced
-registries.
+Only the child should have access to the SIG(0) private key. The
+corresponding SIG(0) public key doesn't have to be published in DNS, it
+only needs to be available to the parent DDNS receiver. Keeping
+all the public SIG(0) keys for different child zones in some sort of
+database is perfectly fine.
 
-All the parts of the DNS name space where the parent is smaller and 
-more resource constrained would be able to automate the delegation 
-management via this mechanism without the requirement of operating 
-scanners. Also all parts of the name space where there are child zones 
-that are not DNSSEC-signed would be able to use this. 
+## Rolling the SIG(0) Key
 
-Obviously, also well-resourced parent zones with DNSSEC-signed child
-zones would be able to use this DDNS-based mechanism, but in those
-cases scanners plus generalized notifications would also work. 
+Once the parent DDNS Receiver has the key, the child can update it via
+a DDNS Update just like updating the NS RRset, the DS RRset or the
+glue in the parent zone (assuming a suitable DDNS update policy in the
+parent). I.e. only the initial bootstrapping of the
+key is an issue.
+
+## Bootstrapping the SIG(0) Public Key Into the DDNS Receiver
+
+The primary audience for this DDNS-based synchronization mechanism is
+"non-registries". In those cases there is by definition some mechanism
+in place to communicate information from the child to the parent, be
+it email, a web form, pieces of paper or something else. The same
+mechanism can be extended to also be used to communicate the initial
+SIG(0) public key from the child to the parent.
+
+Should a "registry" parent want to support this mechanism (as a
+service to its unsigned children) then the interface is usually EPP
+{{!RFC1234}} and would require the implementation of a new EPP
+extension, which is clearly doable.
 
 # Security Considerations.
 
