@@ -1,17 +1,17 @@
-# Requirements On a TLD Zone Verification and Signing Pipeline
+# DNS Delegation Management via Dynamic Update
 
-This is the working area for the individual Internet-Draft, "Requirements On a TLD Zone Verification and Signing Pipeline".
+This is the working area for the individual Internet-Draft, "DNS Delegation Management via DDNS".
 
-* [Editor's Copy](https://johanix.github.io/draft-johani-tld-zone-pipeline/#go.draft-johani-tld-zone-pipeline.html)
-* [Datatracker Page](https://datatracker.ietf.org/doc/draft-johani-tld-zone-pipeline)
-* [Individual Draft](https://datatracker.ietf.org/doc/html/draft-johani-tld-zone-pipeline)
-* [Compare Editor's Copy to Individual Draft](https://johanix.github.io/draft-johani-tld-zone-pipeline/#go.draft-johani-tld-zone-pipeline.diff)
+* [Editor's Copy](https://johanix.github.io/draft-johani-dnsop-delegation-mgmt-via-ddns/#go.draft-johani-dnsop-delegation-mgmt-via-ddns.html)
+* [Datatracker Page](https://datatracker.ietf.org/doc/draft-johani-dnsop-delegation-mgmt-via-ddns)
+* [Individual Draft](https://datatracker.ietf.org/doc/html/draft-johani-dnsop-delegation-mgmt-via-ddns)
+* [Compare Editor's Copy to Individual Draft](https://johanix.github.io/draft-johani-dnsop-delegation-mgmt-via-ddns/#go.draft-johani-dnsop-delegation-mgmt-via-ddns.diff)
 
 
 ## Contributing
 
 See the
-[guidelines for contributions](https://github.com/johanix/draft-johani-tld-zone-pipeline/blob/main/CONTRIBUTING.md).
+[guidelines for contributions](https://github.com/johanix/draft-johani-dnsop-delegation-mgmt-via-ddns/blob/main/CONTRIBUTING.md).
 
 Contributions can be made by creating pull requests.
 The GitHub interface supports creating pull requests using the Edit (✏) button.
