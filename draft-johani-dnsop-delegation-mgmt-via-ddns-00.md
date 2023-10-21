@@ -1,7 +1,7 @@
 ---
-title: "Automating DNS Delegation Information via DDNS"
+title: "Automating DNS Delegation Management via DDNS"
 abbrev: DDNS Updates of Delegation Information
-docname: draft-johani-dnsop-automate-zone-cuts-via-ddns-00
+docname: draft-johani-dnsop-delegation-mgmt-via-ddns-00
 date: {DATE}
 category: std
 
@@ -43,7 +43,7 @@ automatically is deployed.
 This document proposes such a mechanism.
 
 TO BE REMOVED: This document is being collaborated on in Github at:
-[https://github.com/johanix/draft-johani-dnsop-automate-zone-cuts-via-ddns](https://github.com/johanix/draft-johani-dnsop-automate-zone-cuts-via-ddns).
+[https://github.com/johanix/draft-johani-dnsop-delegation-mgmt-via-ddns](https://github.com/johanix/draft-johani-dnsop-delegation-mgmt-via-ddns).
 The most recent working version of the document, open issues, etc. should all be
 available there.  The authors (gratefully) accept pull requests.
 
@@ -84,8 +84,7 @@ Knowledge of DNS NOTIFY {{!RFC1996}} and DNS Dynamic Updates
 {{!RFC2136}} and {{!RFC3007}} is assumed. DNS SIG(0) transaction
 signatures are documented in {{!RFC2931}}. In addition this
 Internet-Draft borrows heavily from the thoughts and problem statement
-from the Internet-Draft on Generalized DNS Notifications [which cannot
-be referenced?]
+from the Internet-Draft on Generalized DNS Notifications (work in progress).
 
 ## Requirements Notation
 
@@ -112,12 +111,25 @@ scanners. Also all parts of the name space where there are child zones
 that are not DNSSEC-signed would be able to use this.
 
 Obviously, also well-resourced parent zones with DNSSEC-signed child
-zones would be able to use this DDNS-based mechanism, but in those
+zones would be able to use this DNS UPDATE-based mechanism, but in those
 cases scanners plus generalized notifications would also work.
 
-# What is a "NOTIFY"?
+# DNS NOTIFY versus DNS Dynamic Update
 
-A NOTIFY (as of {{!RFC1996}}) is a message, in DNS packet format, that
+DNS NOTIFY and DNS Dynamic Update messages share several properties
+and are used to address similar issues. 
+
+Both NOTIFY and UPDATE are "push" rather than "pull" messages and
+therefore very efficient. 
+
+Both NOTIFY and UPDATE are used by one party (the sender) to inform
+another party (the recipient) that some piece of DNS information has
+changed and that as a consequence of this change the recipient of the
+message may want to also make a change to its DNS data.
+
+## What is a "DNS NOTIFY"?
+
+A NOTIFY (as per {{!RFC1996}}) is a message, in DNS packet format, that
 allows one party to notify another that some DNS data elsewhere has
 changed. It is only a hint and the recipient may ignore it. But if
 the recipient does listen to the NOTIFY it should make its own lookups
@@ -138,38 +150,38 @@ A generalized NOTIFY is typically sent across a zone cut (from child
 to parent) and the recipient is likely a CSYNC or CDS scanner. In this
 case it is essentially a message that says:
 
-	"the delegation information for this child has changed; I suggest
-	that you go and check it out yourself"
+    "the delegation information for this child has changed; I suggest
+    that you go and check it out yourself"
 
-# What is a "DNS Dynamic Update"?
+## What is a "DNS Dynamic Update"?
 
-A DNS Dynamic Update is a message, in DNS packet format, that allows
-one party to notify another that some DNS data under the recipients
-management should change. The difference to the NOTIFY is that the
-dynamic update contains the exact change that should (in the opinion
-of the sender) be applied to the recipients DNS data. Furthermore, for
-*secure* Dynamic Updates, the message also contains proof why the
-update should be trusted (in the form of a digital signature by a key
-that the recipient trusts).
+A DNS UPDATE (a "Dynamic Update") is a message, in DNS packet format,
+that allows one party to notify another that some DNS data under the
+recipients management should change. The difference to the NOTIFY is
+that the dynamic update contains the exact change that should (in the
+opinion of the sender) be applied to the recipients DNS
+data. Furthermore, for secure Dynamic Updates, the message also
+contains proof why the update should be trusted (in the form of a
+digital signature by a key that the recipient trusts).
 
-In this document the term "Dynamic Update" or "DDNS Update" implies
-*secure* dynamic update. Furthermore this document implies that the
+In this document the term "Dynamic Update" or "DNS UPDATE" implies
+secure dynamic update. Furthermore this document implies that the
 signature algorithms are always based on assymetric crypto keys, using
 the same algorithms as are being used for DNSSEC. I.e. by using the
 right algorithm the resulting signatures will be as strong as
 DNSSEC-signatures.
 
-DDNS Updates can be used to update any information in a zone (subject
+DNS UPDATEs can be used to update any information in a zone (subject
 to the policy of the recipient). But in the special case where the
 data that is updated is the delegation information for a child zone
 and it is sent across a zone cut (i.e. the child sends it to the
 parent), it acts as a glorified generalized NOTIFY.
 
-The DDNS update in this case is essentially a message that says:
+The DNS UPDATE in this case is essentially a message that says:
 
-	"the delegation information for this child zone has changed; here
-	is the exact change; here is the proof that the change is
-	authentic, please verify this signature"
+    "the delegation information for this child zone has changed; here
+    is the exact change; here is the proof that the change is
+    authentic, please verify this signature"
 
 # Terminology
 
@@ -178,33 +190,33 @@ SIG(0)
   need to know the public key to verify a signature created by the
   senders private key.
 
-# Updating Delegation Information via DDNS Updates.
+# Updating Delegation Information via DNS UPDATEs.
 
 This is not a new idea. The functionality to update delegation
-information in the parent zone via DDNS has been available for
-years in a least one DNS implementation (BIND9). However, while DDNS
-is used extensively inside organisations it has not seen much use
-across organisational boundaries. And zone cuts, almost by definition,
-usually cuts across such boundaries.
+information in the parent zone via DNS UPDATE has been available for
+years in a least one DNS implementation (BIND9). However, while DNS
+UPDATE is used extensively inside organisations it has not seen much
+use across organisational boundaries. And zone cuts, almost by
+definition, usually cuts across such boundaries.
 
-When sending a DDNS update it is necessary to know where to send
+When sending a DNS UPDATE it is necessary to know where to send
 it. Inside an organisation this information is usually readily
 available. But outside the organisation it is not. And even if the
 sender would know where to send the update, it is not at all clear
 that the destination is reachable to the sender (the parent primary is
-likely to be protected by firewalls and other measures). 
+likely to be protected by firewalls and other measures).
 
-This constitutes a problem for using DDNS Updates across zone cuts.
+This constitutes a problem for using DNS UPDATES across zone cuts.
 
-Another concern is that traditionally DDNS updates are sent to a
+Another concern is that traditionally DNS UPDATEs are sent to a
 primary nameserver, and if the update signture verifies the update is
 automatically applied to the DNS zone. This is often not an acceptable
 mechanism. The recipient may, for good reason, require additional
-policy checks and likely an audit trail. Finally, the change should
-in many cases not be applied to the running zone but rather to some sort of
-provisioning system or a database.
+policy checks and likely an audit trail. Finally, the change should in
+many cases not be applied to the running zone but rather to some sort
+of provisioning system or a database.
 
-This creates another problem for using DDNS Updates for managing
+This creates another problem for using DNS UPDATEs for managing
 delegation information.
 
 Both problems are addressed by the proposed mechanism for locating the
@@ -215,7 +227,7 @@ recipient of a generalized NOTIFY.
 The generalized notifications I-D proposes a new RR type, tentatively
 with the mnemonic NOTIFY that has the following format:
 
-	{parent zone}   IN  NOTIFY  {RRtype} {scheme} {port} {target}
+    {parent zone}   IN  NOTIFY  {RRtype} {scheme} {port} {target}
 
 where {parent zone} is the domain name of the parent zone and
 {target} is the domain name of the recipient of the NOTIFY. {RRtype}
@@ -227,7 +239,7 @@ the type of notification mechanism to use. Scheme=1 is defined as
 
 Example for where children of `parent.` should send NOTIFY(CSYNC):
 
-	parent. IN NOTIFY CSYNC 1 5301 csync-scanner.parent.
+    parent. IN NOTIFY CSYNC 1 5301 csync-scanner.parent.
 
 This record is looked up by the child primary nameserver at the time
 that the child primary is about to publish a new CSYNC record in the
@@ -235,72 +247,87 @@ child zone (or the equivalent for a CDS). The interpretation is:
 
 `Send a NOTIFY(CSYNC) to csync-scanner.parent. on port 5301`
 
-# Locating the Target for a DDNS Update.
+# Locating the Target for a DNS UPDATE.
 
 This document proposes the definition of a new {scheme} for the same
 record that is used for generalized NOTIFY. Scheme=2 is here defined
-as "send a DDNS Update".
+as "send a DNS UPDATE".
 
 Example:
 
-	parent.  IN NOTIFY ANY 2 5302 ddns-receiver.parent.
+    parent.  IN NOTIFY ANY 2 5302 ddns-receiver.parent.
 
 This record is looked up by the child primary nameserver at the time
 that the delegation information for the child zone changes (typically
 causing the child to publish a new CSYNC record and/or a new CDS
 record). The interpretation is:
 
-`Send a DDNS Update to ddns-receiver.parent. on port 5302`
+`Send a DNS UPDATE to ddns-receiver.parent. on port 5302`
 
-# Interpretation of the response to the DDNS Update.
+# Interpretation of the response to the DNS UPDATE.
 
 All DNS transactions are designed as a pair of messages and this is
-true also for DDNS updates. The interpretation of the different
-responses to DDNS updates are already fully documented in
-{{!RFC2136}}, section 2.2. In particular a response with rcode=5
-("REFUSED") should be interpreted as a permanent signal that DDNS
-updates are not supported by the receiver.
+true also for DNS UPDATE. The interpretation of the different
+responses to DNS UPDATE are already fully documented in {{!RFC2136}},
+section 2.2. In particular a response with rcode=5 ("REFUSED") should
+be interpreted as a permanent signal that DNS UPDATEs are not
+supported by the receiver.
 
 The case of no response is more complex, as it is not possible to know
-whether the DDNS update actually reached the reciever (or was lost in
+whether the DNS UPDATE actually reached the reciever (or was lost in
 transit) or the response was not sent (or lost in transit).
 
 For this reason it is suggested that a lack of response is left as
 implementation dependent. That way the implementation has sufficient
-freedom do chose a sensible approach. Eg. if the sender of the DDNS
-Update (like the primary nameserver of the child zone) only serves a
-single child, then resending the DDNS Update once or twice may be ok
+freedom do chose a sensible approach. Eg. if the sender of the DNS
+UPDATE (like the primary nameserver of the child zone) only serves a
+single child, then resending the DNS UPDATE once or twice may be ok
 (to ensure that the lack of response is not due to packets being lost
 in transit). On the other hand, if the sender serves a large number of
 child zones below the same parent zone, then it may already know that
-the receiver for the DDNS Updates is not responding for any of the
+the receiver for the DNS UPDATEs is not responding for any of the
 child zones, and then resending the update immediately is likely
 pointless.
+
+# Limitation of Scope for the Proposed Mechanism
+
+DNS UPDATE is in wide use all over the world, for all sorts of
+purposes. It is not in wide use (if used at all) across organizational
+boundaries. This document only address the specific case of a child
+zone that makes a change in its DNS information that will require an
+update of the corresponding information in the parent zone. This
+includes:
+
+* changes to the NS RRset
+* changes to glue (if any)
+* changes to the DS RRset (if any)
+
+Only for those specific cases is the descibed mechanism proposed.
 
 # Management of SIG(0) Public Keys
 
 Only the child should have access to the SIG(0) private key. The
 corresponding SIG(0) public key doesn't have to be published in DNS, it
-only needs to be available to the parent DDNS receiver. Keeping
+only needs to be available to the parent DNS UPDATE Receiver. Keeping
 all the public SIG(0) keys for different child zones in some sort of
 database is perfectly fine.
 
 ## Rolling the SIG(0) Key
 
-Once the parent DDNS Receiver has the key, the child can update it via
-a DDNS Update just like updating the NS RRset, the DS RRset or the
-glue in the parent zone (assuming a suitable DDNS update policy in the
-parent). I.e. only the initial bootstrapping of the
-key is an issue.
+Once the parent DNS UPDATE Receiver has the key, the child can update
+it via a DNS UPDATE just like updating the NS RRset, the DS RRset or
+the glue in the parent zone (assuming a suitable DNS UPDATE policy in
+the parent). I.e. only the initial bootstrapping of the key is an
+issue.
 
-## Bootstrapping the SIG(0) Public Key Into the DDNS Receiver
+## Bootstrapping the SIG(0) Public Key Into the DNS UPDATE Receiver
 
-The primary audience for this DDNS-based synchronization mechanism is
-"non-registries". In those cases there is by definition some mechanism
-in place to communicate information from the child to the parent, be
-it email, a web form, pieces of paper or something else. The same
-mechanism can be extended to also be used to communicate the initial
-SIG(0) public key from the child to the parent.
+The primary audience for this DNS UPDATE based synchronization
+mechanism is "non-registries". In those cases there is by definition
+some mechanism in place to communicate information from the child to
+the parent, be it email, a web form, pieces of paper or something
+else. The same mechanism can be extended to also be used to
+communicate the initial SIG(0) public key from the child to the parent.
 
 Should a "registry" parent want to support this mechanism (as a
 service to its unsigned children) then the interface is usually EPP
@@ -314,8 +341,8 @@ opens up a potential vulnerability should the mechanism not be
 implemented correctly. 
 
 In this case the definition of "correct" is a question for the
-receiver of the DDNS Update. The receiver should validate the
-authenticity of the update and then do the same checks and
+receiver of the DNS UPDATE. The receiver should validate the
+authenticity of the DNS UPDATE and then do the same checks and
 verifications as a CDS or CSYNC scanner does. The difference from the
 scanner is only in the validation: single SIG(0) signature by a key
 that the receiver trusts vs DNSSEC signature that chains back to a
@@ -334,13 +361,13 @@ None.
 
 * Mark Andrews provided the initial inspiration for writing some code
   to experiment with the combination of the location mechanism from
-  the generalised notifications with DDNS Updates across zone cuts.
+  the generalised notifications with DNS UPDATEs across zone cuts.
 
 --- back
 
 # Change History (to be removed before publication)
 
-* draft-johani-dnsop-automate-zone-cuts-via-ddns-00 
+* draft-johani-dnsop-delegation-mgmt-via-ddns-00 
 
 > Initial public draft. 
 
