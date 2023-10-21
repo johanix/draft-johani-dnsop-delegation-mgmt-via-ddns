@@ -18,6 +18,7 @@ author:
     ins: J. Stenstam
     name: Johan Stenstam
     organization: The Swedish Internet Foundation
+    country: Sweden
     email: johan.stenstam@internetstiftelsen.se
 
 normative:
