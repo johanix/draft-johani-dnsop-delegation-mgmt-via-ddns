@@ -190,12 +190,15 @@ SIG(0)
 
 # Updating Delegation Information via DNS UPDATEs.
 
-This is not a new idea. The functionality to update delegation
-information in the parent zone via DNS UPDATE has been available for
-years in a least one DNS implementation (BIND9). However, while DNS
-UPDATE is used extensively inside organisations it has not seen much
-use across organisational boundaries. And zone cuts, almost by
-definition, usually cuts across such boundaries.
+This is not a new idea. There is lots of prior art and prior
+documents, including the expired draft-andrews-dnsop-update-parent-zones-04.
+
+The functionality to update delegation information in the parent zone
+via DNS UPDATE has been available for years in a least one DNS
+implementation (BIND9). However, while DNS UPDATE is used extensively
+inside organisations it has not seen much use across organisational
+boundaries. And zone cuts, almost by definition, usually cuts across
+such boundaries.
 
 When sending a DNS UPDATE it is necessary to know where to send
 it. Inside an organisation this information is usually readily
@@ -223,9 +226,9 @@ recipient of a generalized NOTIFY.
 # Locating the Target for a generalized NOTIFY and/or DNS UPDATE.
 
 The generalized notifications I-D proposes a new RR type, tentatively
-with the mnemonic NOTIFY that has the following format:
+with the mnemonic DSYNC that has the following format:
 
-    {parent zone}   IN  NOTIFY  {RRtype} {scheme} {port} {target}
+    {parent zone}   IN  DSYNC  {RRtype} {scheme} {port} {target}
 
 where {parent zone} is the domain name of the parent zone and
 {target} is the domain name of the recipient of the NOTIFY. {RRtype}
@@ -233,34 +236,32 @@ is typically "CDS" or "CSYNC" in the case where delegation
 information should be updated (there are also other uses of
 generalized notifications). Finally, {scheme} is a number to indicate
 the type of notification mechanism to use. Scheme=1 is defined as
-"send a generalized NOTIFY".
-
-Example for where children of `parent.` should send NOTIFY(CSYNC):
-
-    parent. IN NOTIFY CSYNC 1 5301 csync-scanner.parent.
-
-This record is looked up by the child primary nameserver at the time
-that the child primary is about to publish a new CSYNC record in the
-child zone (or the equivalent for a CDS). The interpretation is:
-
-`Send a NOTIFY(CSYNC) to csync-scanner.parent. on port 5301`
-
-## Locating the Target for a DNS UPDATE.
+"send a generalized NOTIFY to {target} on port {port}".
 
 This document proposes the definition of a new {scheme} for the same
 record that is used for generalized NOTIFY. Scheme=2 is here defined
 as "send a DNS UPDATE".
 
-Example:
+Example for a parent zone that announce support for DNS UPDATE as a
+mechanism for delegation synchronization:
 
-    parent.  IN NOTIFY ANY 2 5302 ddns-receiver.parent.
+    parent.  IN DSYNC ANY 2 5302 ddns-receiver.parent.
 
-This record is looked up by the child primary nameserver at the time
-that the delegation information for the child zone changes (typically
-causing the child to publish a new CSYNC record and/or a new CDS
-record). The interpretation is:
+This record is looked up, typically by the child primary nameserver,
+at the time that the delegation information for the child zone changes
+in some way that would prompt an update in the parent zone. The
+interpretation is:
 
 `Send a DNS UPDATE to ddns-receiver.parent. on port 5302`
+
+Apart from defining a new scheme to specify the mechanism "UPDATE"
+(rather than "NOTIFY") this document does not say anything about what
+Qname to look up or what RR type. The UPDATE mechanism should use
+exactly the same method oof locating the target of the UPDATE as is
+used for generalized NOTIFY.
+
+This lookup addresses the first issue with using DNS UPDATE across
+organizational boundaries.
 
 # Limitation of Scope for the Proposed Mechanism 
 
@@ -277,7 +278,13 @@ includes:
 
 Only for those specific cases is the descibed mechanism proposed. 
 
-# Processing the UPDATE in the DNS UPDATE Receiver 
+# The DNS UPDATE Receiver
+
+While the simplest design is to send the DNS UPDATEs to the primary
+name server of the parent it will in most cases be more interesting to
+send them to a separate UPDATE Receiver. 
+
+## Processing the UPDATE in the DNS UPDATE Receiver 
 
 The receiver of the DNS UPDATE messages should implement a suitably 
 strict policy for what updates are accepted (typically only allowing 
@@ -306,10 +313,20 @@ true also for DNS UPDATE. The interpretation of the different
 responses to DNS UPDATE are fully documented in {{!RFC2136}}, section
 2.2.
 
+## RCODE NOERROR
+
+A response with rcode=0 ("NOERROR") should be interpreted as a
+confirmation that the DNS UPDATE has been received and
+accepted. I.e. the change to the parent DNS data should be expected to
+be published in the parent zone at some future time.
+
 ## RCODE REFUSED
 
 A response with rcode=5 ("REFUSED") should be interpreted as a
-permanent signal that DNS UPDATEs are not supported by the receiver.
+permanent signal that DNS UPDATEs are not supported by the
+receiver. This would indicate a parent misconfiguration, as the UPDATE
+should not be sent unless the parent has announced support for DNS
+UPDATE via publication of an appropriate target location record.
 
 ## RCODE BADKEY
 
@@ -439,6 +456,13 @@ None.
 --- back
 
 # Change History (to be removed before publication)
+
+* draft-johani-dnsop-delegation-mgmt-via-ddns-01
+
+> Expand the description of how to interpret different RCODE responses
+> to the UPDATE. Expand the description of bootstrapping
+> alternatives. Change the mnemonic of the RR type used from "NOTIFY"
+> to "DSYNC" in the examples.
 
 * draft-johani-dnsop-delegation-mgmt-via-ddns-00 
 
