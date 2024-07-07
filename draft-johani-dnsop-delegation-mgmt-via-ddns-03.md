@@ -1,7 +1,7 @@
 ---
 title: "Automating DNS Delegation Management via DDNS"
 abbrev: DDNS Updates of Delegation Information
-docname: draft-johani-dnsop-delegation-mgmt-via-ddns-01
+docname: draft-johani-dnsop-delegation-mgmt-via-ddns-02
 date: {DATE}
 category: std
 
@@ -66,10 +66,9 @@ and slow. They are only applicable to DNSSEC-signed child zones and
 they add significant complexity to the parent operations. But given
 that, they do work.
 
-Generalized DNS Notifications (see
-draft-ietf-dnsop-generalized-notify-00) propose a method to
-alleviate the inefficiency and slowness of scanners. But the DNSSEC
-requirement and the complexity remain.
+I-D.ietf-dnsop-generalized-notify-01 proposes a method to alleviate
+the inefficiency and slowness of scanners. But the DNSSEC requirement
+and the complexity remain.
 
 This document proposes an alternative mechanism to automate the
 updating of delegation information in the parent zone for a child
@@ -136,23 +135,6 @@ ignore it. But if the recipient does listen to the NOTIFY it should
 make its own lookups to verify what has changed and whether that
 should trigger any changes in the DNS data provided by the recipient.
 
-## Generalized NOTIFY vs original NOTIFY
-
-This is a proposed extension to the use of {{!RFC1996}} NOTIFY. The
-extension covers using NOTIFY(CSYNC) to signal the publication of a CSYNC
-record in the child zone (prompting the parent zone to look it up and
-make a decison on whether to update the delegation information for the
-child zone based upon what is found. Another type is NOTIFY(CDS) which
-does the same, except it is used to prompt the parent to decide
-whether to update the child DS RRset (or not).
-
-A generalized NOTIFY is typically sent across a zone cut (from child
-to parent) and the recipient is likely a CSYNC or CDS scanner. In this
-case it is essentially a message that says:
-
-    "the delegation information for this child has changed; I suggest
-    that you go and check it out yourself"
-
 ## Differencies between NOTIFY and UPDATE
 
 The difference between the UPDATE and the NOTIFY is that the UPDATE
@@ -191,7 +173,7 @@ SIG(0)
 # Updating Delegation Information via DNS UPDATEs.
 
 This is not a new idea. There is lots of prior art and prior
-documents, including the expired draft-andrews-dnsop-update-parent-zones-04.
+documents, including the expired I-D.andrews-dnsop-update-parent-zones-04.
 
 The functionality to update delegation information in the parent zone
 via DNS UPDATE has been available for years in a least one DNS
@@ -225,43 +207,53 @@ recipient of a generalized NOTIFY.
 
 # Locating the Target for a generalized NOTIFY and/or DNS UPDATE.
 
-The generalized notifications I-D proposes a new RR type, tentatively
-with the mnemonic DSYNC that has the following format:
+Section 3 of I-D.ietf-dnsop-generalized-notify-01 proposes a new RR
+type, tentatively with the mnemonic DSYNC, that has the following
+format:
 
-    {parent zone}   IN  DSYNC  {RRtype} {scheme} {port} {target}
+    {qname}   IN  DSYNC  {RRtype} {scheme} {port} {target}
 
-where {parent zone} is the domain name of the parent zone and
-{target} is the domain name of the recipient of the NOTIFY. {RRtype}
-is typically "CDS" or "CSYNC" in the case where delegation
-information should be updated (there are also other uses of
+where {target} is the domain name of the recipient of the NOTIFY
+message. {RRtype} is typically "CDS" or "CSYNC" in the case where
+delegation information should be updated (there are also other uses of
 generalized notifications). Finally, {scheme} is a number to indicate
 the type of notification mechanism to use. Scheme=1 is defined as
 "send a generalized NOTIFY to {target} on port {port}".
 
 This document proposes the definition of a new {scheme} for the same
 record that is used for generalized NOTIFY. Scheme=2 is here defined
-as "send a DNS UPDATE".
-
-Example for a parent zone that announce support for DNS UPDATE as a
-mechanism for delegation synchronization:
-
-    parent.  IN DSYNC ANY 2 5302 ddns-receiver.parent.
-
-This record is looked up, typically by the child primary nameserver,
-at the time that the delegation information for the child zone changes
-in some way that would prompt an update in the parent zone. The
-interpretation is:
-
-`Send a DNS UPDATE to ddns-receiver.parent. on port 5302`
+as "send a DNS UPDATE". When parsing or presenting DNS zone data the 
+eight bit number "2" should be replaced by the string "UPDATE", as
+in the examples below.
 
 Apart from defining a new scheme to specify the mechanism "UPDATE"
-(rather than "NOTIFY") this document does not say anything about what
-Qname to look up or what RR type. The UPDATE mechanism should use
-exactly the same method oof locating the target of the UPDATE as is
-used for generalized NOTIFY.
-
+(rather than the mechanism "NOTIFY") this document does not say
+anything about what Qname to look up or what RR type. The UPDATE
+mechanism should use exactly the same method of locating the target of
+the UPDATE as is used for generalized NOTIFY.
+ 
 This lookup addresses the first issue with using DNS UPDATE across
 organizational boundaries.
+
+Example 1: a parent zone announces support for DNS UPDATE as a
+mechanism for delegation synchronization for all child zones:
+
+    _dsync.parent.  IN DSYNC ANY UPDATE 5302 ddns-receiver.parent.
+ 
+Example 2: a parent zone announces support different DNS UPDATE
+targets on a per-child basis 
+
+    childA._dsync.parent.  IN DSYNC ANY UPDATE 5302 ddns-receiver.registrar1.
+    childB._dsync.parent.  IN DSYNC ANY UPDATE 5302 ddns-receiver.registrar3.
+    childC._dsync.parent.  IN DSYNC ANY UPDATE 5302 ddns-receiver.registrar2.
+ 
+The DSYNC RRset is looked up, typically by the child primary
+nameserver, at the time that the delegation information for the child
+zone changes in some way that would prompt an update in the parent
+zone. When the {scheme} is "UPDATE" (i.e. the number 2 in the wire protocol) 
+the interpretation is:
+
+`Send a DNS UPDATE to {target} on port 5302`
 
 # Limitation of Scope for the Proposed Mechanism 
 
@@ -282,7 +274,9 @@ Only for those specific cases is the descibed mechanism proposed.
 
 While the simplest design is to send the DNS UPDATEs to the primary
 name server of the parent it will in most cases be more interesting to
-send them to a separate UPDATE Receiver. 
+send them to a separate UPDATE Receiver. To separate the primary name
+server from the UPDATE Receiver use a {target} with addresses separate
+from the addresses of the primary name server.
 
 ## Processing the UPDATE in the DNS UPDATE Receiver 
 
@@ -357,8 +351,8 @@ pointless.
 # Management of SIG(0) Public Keys
 
 Only the child should have access to the SIG(0) private key. The
-corresponding SIG(0) public key can be published in DNS, but it
-doesn't have have to be. The SIG(0) public key only needs to be
+corresponding SIG(0) public key should preferably be published in DNS,
+but it doesn't have have to be. The SIG(0) public key only needs to be
 available to the parent DNS UPDATE Receiver. Keeping all the public
 SIG(0) keys for different child zones in some sort of database is
 perfectly fine.
@@ -392,7 +386,8 @@ queue for later look up of the corresponding KEY record and validation
 of the DNSSEC-signature. In case of validation failure (or absence of
 a DNSSEC signature) the SIG(0) SHOULD NOT be added to the set of keys
 that the receiver knows and trust. If the validation succeeds the key
-should be added to the set of keys stored locally at the receiver.
+should be added to the set of trusted public SIG(0) keys stored 
+locally at the receiver.
 
 ### Child zone is unsigned
 
@@ -405,24 +400,72 @@ pieces of paper or something else. The same mechanism can be extended
 to also be used to communicate the initial SIG(0) public key from the
 child to the parent.
 
+It should also be noted that the bootstrap problem is essentially
+identical to the "automatic DNSSEC Bootstrap via CDS" service that
+multiple TLD registries provide today. Hence, to bootstrap the public
+SIG(0) key for child zone it is possible for the parent to scan the
+child zone for the KEY RRset. To make spoofed responses more difficult
+it is possible to also add a requirement to use a more stable
+transport, like TCP (or in the future DOT, DOH or DOQ once those
+become more generally available for DNS queries to authoritative
+servers). If the received KEY RRset is consistent from multiple
+vantage points and multiple times then it is considered authentic and
+stored by the parent's UPDATE Receiver as a trusted SIG(0) key for the
+child.
+
 Should a "registry" parent want to support this mechanism (as a
-service to its unsigned children) then the interface is usually EPP
-{{!RFC5730}} and would require the implementation of a new EPP
-extension, which is clearly doable.
+service to its unsigned children) then the most likely model is that
+the target of the DNS UPDATE is operated by the registrar (or possibly
+that the DNS UPDATE is forwarded to the registrar). The registrar
+performs its normal verifications of a change and then transforms the
+update into an EPP {{!RFC5730}} transaction to communicate it to the
+registry.
 
 ## Rolling the SIG(0) Key 
 
-Once the parent DNS UPDATE Receiver has the key, the child can update 
-it via a DNS UPDATE just like updating the NS RRset, the DS RRset or 
-the glue in the parent zone (assuming a suitable DNS UPDATE policy in 
-the parent). I.e. only the initial bootstrapping of the key is an
-issue.
+Once the parent (or registrar) DNS UPDATE Receiver has the key, the
+child can update it via a DNS UPDATE just like updating the NS RRset,
+the DS RRset or the glue in the parent zone (assuming a suitable DNS
+UPDATE policy in the parent). I.e. only the initial bootstrapping of
+the key is an issue.
 
 Note, however, that the alternative of re-bootstrapping (by whatever
 bootstrapping mechanism was used) in case of a key compromise may be a
 better alternative to the parent supporting key rollover for child
-SIG(0) keys. The decision of whether to allow key rollover via DNS
-UPDATE is left as parent-side policy.
+SIG(0) keys. The decision of whether to allow SIG(0) key rollover via
+DNS UPDATE is left as parent-side policy.
+
+# Scalability Considerations
+
+The primary existing mechanism for automatic synchronization of DNS
+delegation information is based on parent-side "scanning" of the child
+zones for CDS and/or CSYNC RRsets, performing DNSSEC validation on the
+result and then, in the CSYNC case, based on the result, issue and
+validate a potentially large number of additional DNS queries, all of
+which must be DNSSEC validated. This makes a CDS/CSYNC scanner for a
+parent with a significant number of delegations a complex and resource
+consuming service. Among the issues are rate-limiting by large DNS
+operators and inherent difficulties in issuing millions of recursive
+DNS queries where all received data must be validated.
+
+By comparision, the DNS UPDATE based mechanism for automatic
+synchronization shifts most of the effort to the child side. It is the
+child that is responsible for detecting the need to update the
+delegation information in the parent zone (which makes sense as it is
+the child that has made a change and therefore, in many cases, already
+"knows"). It is the child rather than the parent that computes what
+records should be added or removed. All of this is good for
+scalability.
+
+Furthermore, the information collection and validation effort for the
+UPDATE Receiver is restricted to validation of a single DNS message,
+using a SIG(0) key that the UPDATE Receiver already has. The UPDATE
+Receiver does not have to issue any DNS queries, it does not have to
+follow any DNSSEC signature chains to perform validation.
+
+Hence, as the data collection and validation is much simplified the
+task of the UPDATE Receiver is mostly focused on the policy issues of
+whether to approve the UPDATE or not.
 
 # Security Considerations.
 
@@ -435,8 +478,20 @@ receiver of the DNS UPDATE. The receiver should validate the
 authenticity of the DNS UPDATE and then do the same checks and
 verifications as a CDS or CSYNC scanner does. The difference from the
 scanner is only in the validation: single SIG(0) signature by a key
-that the receiver trusts vs DNSSEC signature that chains back to a
-DNSSEC trust anchor that a scanner trusts.
+that the UPDATE Receiver trusts vs DNSSEC signatures that chain back
+to a DNSSEC trust anchor that the validator trusts.
+
+Another issue of concern is whether a parent-side service that
+provides support for changes to child delegation information via DNS
+UPDATE opens up for potential denial-of-service attacks. The answer is
+likely no, as it is possible to have a very strict rate-limiting
+policy based on the observation that no child zone should have a
+legitimate need to change its delegation information freqently.
+
+Furthermore, as the location of the UPDATE Receiver can be separated
+from any parent name server even in the worst case the only service
+that can be subject to an attack is the UPDATE Receiver itself, which
+is a service that previously did not exist.
 
 # IANA Considerations.
 
@@ -457,14 +512,39 @@ None.
 
 # Change History (to be removed before publication)
 
+* draft-johani-dnsop-delegation-mgmt-via-ddns-03
+
+> Update the draft based on the excellent dnsdir review of 
+> draft-ietf-dnsop-generalized-notify-01 by Patrick Mevsek.
+
+> Expand the section on alternatives for initial bootstrap
+> to suggest a mechanism similar to what is used for automatic
+> bootstrap of DNSSEC signed delegations via multiple queries
+> for child the CDS RRset.
+
+> Added a section on scalability considerations.
+
+> Expanded the Security Considerations section with a paragraph on
+> the potential for DDOS attacks aimed at the UPDATE Receiver.
+
+* draft-johani-dnsop-delegation-mgmt-via-ddns-02
+
+> Update the references to the (updated) I-D for generalized
+> notifications.
+
+> Remove duplicated descriptions between the two drafts. It is
+> sufficient that the generalized notification draft describes the
+> mechanics.
+
 * draft-johani-dnsop-delegation-mgmt-via-ddns-01
+
+> Change the RRtype from the original "NOTIFY" to the proposed "DSYNC"
 
 > Expand the description of how to interpret different RCODE responses
 > to the UPDATE. Expand the description of bootstrapping
 > alternatives. Change the mnemonic of the RR type used from "NOTIFY"
 > to "DSYNC" in the examples.
 
-* draft-johani-dnsop-delegation-mgmt-via-ddns-00 
+* draft-johani-dnsop-delegation-mgmt-via-ddns-00
 
-> Initial public draft. 
-
+> Initial public draft.
