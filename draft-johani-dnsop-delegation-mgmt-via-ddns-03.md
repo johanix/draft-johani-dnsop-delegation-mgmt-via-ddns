@@ -1,7 +1,7 @@
 ---
 title: "Automating DNS Delegation Management via DDNS"
 abbrev: DDNS Updates of Delegation Information
-docname: draft-johani-dnsop-delegation-mgmt-via-ddns-02
+docname: draft-johani-dnsop-delegation-mgmt-via-ddns-03
 date: {DATE}
 category: std
 
@@ -499,8 +499,8 @@ is a service that previously did not exist.
 
 # IANA Considerations.
 
-Per {{!RFC8552}}, IANA is requested to assign a new value to the
-registry for "DSYNC Location of Synchronization Endpoints" as follows:
+IANA is requested to assign a new "scheme" value to the registry for
+"DSYNC Location of Synchronization Endpoints" as follows:
 
 Reference
 : (this document)
