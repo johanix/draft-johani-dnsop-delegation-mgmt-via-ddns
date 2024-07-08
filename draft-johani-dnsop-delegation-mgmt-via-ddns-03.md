@@ -216,15 +216,18 @@ format:
 where {target} is the domain name of the recipient of the NOTIFY
 message. {RRtype} is typically "CDS" or "CSYNC" in the case where
 delegation information should be updated (there are also other uses of
-generalized notifications). Finally, {scheme} is a number to indicate
-the type of notification mechanism to use. Scheme=1 is defined as
+generalized notifications). 
+
+Finally, {scheme} is an 8 bit unsigned integer to indicate the type of
+notification mechanism to use. Scheme=1 is defined "NOTIFY", as in
 "send a generalized NOTIFY to {target} on port {port}".
 
 This document proposes the definition of a new {scheme} for the same
 record that is used for generalized NOTIFY. Scheme=2 is here defined
-as "send a DNS UPDATE". When parsing or presenting DNS zone data the 
-8 bit unsigned integer "2" should be replaced by the string "UPDATE", as
-in the examples below.
+as "UPDATE", as in "send a DNS UPDATE to {target} on port {port}".
+When parsing or presenting DNS zone data the 8 bit unsigned integer
+"2" should be replaced by the string "UPDATE", as in the examples
+below.
 
 Apart from defining a new scheme to specify the mechanism "UPDATE"
 (rather than the mechanism "NOTIFY") this document does not say
@@ -238,31 +241,33 @@ organizational boundaries.
 Example 1: a parent zone announces support for DNS UPDATE as a
 mechanism for delegation synchronization for all child zones:
 
-    _dsync.parent.  IN DSYNC ANY UPDATE 5302 ddns-receiver.parent.
+    _dsync.parent.  IN DSYNC ANY 2 5302 ddns-receiver.parent.
  
 Example 2: a parent zone announces support different DNS UPDATE
 targets on a per-child basis 
 
-    childA._dsync.parent.  IN DSYNC ANY UPDATE 5302 ddns-receiver.registrar1.
-    childB._dsync.parent.  IN DSYNC ANY UPDATE 5302 ddns-receiver.registrar3.
-    childC._dsync.parent.  IN DSYNC ANY UPDATE 5302 ddns-receiver.registrar2.
+    childA._dsync.parent.  IN DSYNC ANY 2 5302 ddns-receiver.registrar1.
+    childB._dsync.parent.  IN DSYNC ANY 2 5302 ddns-receiver.registrar3.
+    childC._dsync.parent.  IN DSYNC ANY 2 5302 ddns-receiver.registrar2.
  
-The DSYNC RRset is looked up, typically by the child primary
-nameserver, at the time that the delegation information for the child
-zone changes in some way that would prompt an update in the parent
-zone. When the {scheme} is "UPDATE" (i.e. the number 2 in the wire protocol) 
-the interpretation is:
+The DSYNC RRset is looked up, typically by the child primary name
+server or by a separate agent for the child, at the time that the
+delegation information for the child zone changes in some way that
+would prompt an update in the parent zone. When the {scheme} is
+"UPDATE" (i.e. the number 2 in the wire protocol) the interpretation
+is:
 
-`Send a DNS UPDATE to {target} on port 5302`
+`Send a DNS UPDATE to the IP address for the name {target} on port
+5302, where {target} is the domain name in the right-hand side of the
+DSYNC record that matches the qname in the DNS query.`
 
 # Limitation of Scope for the Proposed Mechanism 
 
-DNS UPDATE is in wide use all over the world, for all sorts of 
-purposes. It is not in wide use (if used at all) across organizational 
-boundaries. This document only address the specific case of a child 
-zone that makes a change in its DNS information that will require an 
-update of the corresponding information in the parent zone. This 
-includes: 
+DNS UPDATE is in wide use all over the world, for all sorts of
+purposes. It is not in wide use across organizational boundaries. This
+document only address the specific case of a child zone that makes a
+change in its DNS information that will require an update of the
+corresponding information in the parent zone. This includes:
 
 * changes to the NS RRset 
 * changes to glue (if any) 
@@ -292,13 +297,13 @@ information for the zone `child.parent.` should only be processed if
 it is signed by a SIG(0) key with the name `child.parent.` and the
 signature verifies correctly.
 
-Once the UPDATE has been verified to be correctly signed by a known
-key with the correct name and also adhere to the update policy it
-should be subjected to the same set of correctness tests as CDS/CSYNC
-scanner would have performed. If these requirements are also fulfilled
-the change may be applied to the parent zone in whatever manner the
-parent zone is maintained (as a text file, data in a database, via and
-API, etc).
+Once the DNS UPDATE message has been verified to be correctly signed
+by a known and trusted key with the correct name and also adhere to
+the update policy it should be subjected to the same set of
+correctness tests as CDS/CSYNC scanner would have performed. If these
+requirements are also fulfilled the change may be applied to the
+parent zone in whatever manner the parent zone is maintained (as a
+text file, data in a database, via and API, etc).
 
 # Interpretation of the response to the DNS UPDATE.
 
@@ -339,14 +344,14 @@ transit) or the response was not sent (or lost in transit).
 For this reason it is suggested that a lack of response is left as
 implementation dependent. That way the implementation has sufficient
 freedom do chose a sensible approach. Eg. if the sender of the DNS
-UPDATE (like the primary nameserver of the child zone) only serves a
-single child, then resending the DNS UPDATE once or twice may be ok
-(to ensure that the lack of response is not due to packets being lost
-in transit). On the other hand, if the sender serves a large number of
-child zones below the same parent zone, then it may already know that
-the receiver for the DNS UPDATEs is not responding for any of the
-child zones, and then resending the update immediately is likely
-pointless.
+UPDATE message (like the primary name server of the child zone) only
+serves a single child, then resending the DNS UPDATE once or twice may
+be ok (to ensure that the lack of response is not due to packets being
+lost in transit). On the other hand, if the sender serves a large
+number of child zones below the same parent zone, then it may already
+know that the receiver for the DNS UPDATEs is not responding for any
+of the child zones, and then resending the update immediately is
+likely pointless.
 
 # Management of SIG(0) Public Keys
 
@@ -459,13 +464,12 @@ scalability.
 
 Furthermore, the information collection and validation effort for the
 UPDATE Receiver is restricted to validation of a single DNS message,
-using a SIG(0) key that the UPDATE Receiver already has. The UPDATE
-Receiver does not have to issue any DNS queries, it does not have to
-follow any DNSSEC signature chains to perform validation.
+using a SIG(0) key that the UPDATE Receiver already has.
 
 Hence, as the data collection and validation is much simplified the
 task of the UPDATE Receiver is mostly focused on the policy issues of
-whether to approve the UPDATE or not.
+whether to approve the UPDATE or not (i.e. the same process that a CDS
+and/or CSYNC scanner follows).
 
 # Security Considerations.
 
@@ -483,10 +487,10 @@ to a DNSSEC trust anchor that the validator trusts.
 
 Another issue of concern is whether a parent-side service that
 provides support for changes to child delegation information via DNS
-UPDATE opens up for potential denial-of-service attacks. The answer is
+UPDATE is open for potential denial-of-service attacks. The answer is
 likely no, as it is possible to have a very strict rate-limiting
 policy based on the observation that no child zone should have a
-legitimate need to change its delegation information freqently.
+legitimate need to change its delegation information frequently.
 
 Furthermore, as the location of the UPDATE Receiver can be separated
 from any parent name server even in the worst case the only service
@@ -495,7 +499,15 @@ is a service that previously did not exist.
 
 # IANA Considerations.
 
-None.
+Per {{!RFC8552}}, IANA is requested to assign a new value to the
+registry for "DSYNC Location of Synchronization Endpoints" as follows:
+
+Reference
+: (this document)
+
+| RRtype | Scheme | Purpose               | Reference       |
+| ------ | ------ | --------------------- | --------------- |
+| ANY    |      2 | Delegation management | (this document) |
 
 -------
 
