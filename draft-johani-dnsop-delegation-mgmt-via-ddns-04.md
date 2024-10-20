@@ -24,10 +24,10 @@ author:
 normative:
 
 informative:
-  gennotify:
-    -: draft-ietf-dnsop-generalized-notify
-    title: "Generalized DNS Notifications"
-    target: https://datatracker.ietf.org/doc/draft-ietf-dnsop-generalized-notify
+#  gennotify:
+#    -: draft-ietf-dnsop-generalized-notify
+#    title: "Generalized DNS Notifications"
+#    target: https://datatracker.ietf.org/doc/draft-ietf-dnsop-generalized-notify
 
 --- abstract
 
@@ -70,7 +70,7 @@ and slow. They are only applicable to DNSSEC-signed child zones and
 they add significant complexity to the parent operations. But given
 that, they do work.
 
-{{gennotify}} proposes a method to alleviate  
+{{?I-D.ietf-dnsop-generalized-notify}} proposes a method to alleviate  
 the inefficiency and slowness of scanners. But the DNSSEC requirement
 and the complexity remain.
 
@@ -211,7 +211,7 @@ recipient of a generalized NOTIFY.
 
 # Locating the Target for a generalized NOTIFY and/or DNS UPDATE.
 
-Section 3 of {{?gennotify}} proposes a new RR
+Section 3 of {{?I-D.ietf-dnsop-generalized-notify}} proposes a new RR
 type, tentatively with the mnemonic DSYNC, that has the following
 format:
 
@@ -397,7 +397,7 @@ parent UPDATE Reciever SHOULD mark that key as "known" (but not yet
 trusted) and put that key into a queue for later look up and
 validation of the corresponding KEY record.
 
-### Automatic Bootstrap When Child zone is DNSSEC-signed
+### Automatic Bootstrap When Child Zone is DNSSEC-signed
 
 If the child zone is DNSSEC-signed (including a signed delegation via
 a DS record), then the KEY record containing the SIG(0) public key can
@@ -413,7 +413,7 @@ In case of validation failure (or absence of a DNSSEC signature) the
 SIG(0) SHOULD NOT be promoted to the set of keys that the UPDATE
 Receiver trusts and any old keys MUST be kept.
 
-### Automatich Bootstrap When Child zone is unsigned
+### Automatic Bootstrap When Child Zone is unsigned
 
 The bootstrap problem in the unsigned case is essentially identical to
 the "automatic DNSSEC Bootstrap via CDS" service a la {{!RFC8078}}
@@ -522,12 +522,13 @@ intentionally, limited to:
 * returning extra information from the receiver to the original
   sender. It is not possible to "send" information, only "return"
   information.
+
 * no information except the actual error code is meant for automatic
   processing. it is therefore not possible to communicate things like,
   eg. a KeyId via EDE.
   
 The communication between child and parent would gain from the
-addition of the ability to also:
+addition of the ability to also send inquiries to the parent:
 
 * For the child to be able to inquire about the state of the
   parent. I.e. "I operate under the assumption that the key {key} is
@@ -536,9 +537,12 @@ addition of the ability to also:
 * For the child to inquire about things: "Do you (parent) support
   automatic bootstrapping or not?"
   
-For this reason {{?draft-berra-dnsop-opt-state}} is being proposed as
+For this reason {{?I-D.berra-dnsop-opt-state}} is being proposed as
 a mechanism to improve the communication between child and parent for
 the purpose of automatic delegation synchronization.
+
+Both of the above examples would travel as a new "state codes" in an
+OPT code (for "State") as specified in the above draft.
 
 # Scalability Considerations
 
@@ -626,6 +630,20 @@ Reference
 --- back
 
 # Change History (to be removed before publication)
+
+* draft-johani-dnsop-delegation-mgmt-via-ddns-04
+
+> Reworked the section on automatic bootstrapping a la RFC8078.
+
+> Added a section on re-bootstrapping the SIG(0) key with the parent
+> after problems.
+
+> Added text on the importance of augmenting error responses using EDE
+> (RFC8914).
+
+> Added text on the insufficiency of RFC8914 for child-to-parent
+> communication and a reference to the (upcoming) draft on a new OPT
+> code to alleviate this. 
 
 * draft-johani-dnsop-delegation-mgmt-via-ddns-03
 
