@@ -20,14 +20,22 @@ author:
     organization: The Swedish Internet Foundation
     country: Sweden
     email: johan.stenstam@internetstiftelsen.se
-
+ -
+    ins: E. Bergström
+    name: Erik Bergström
+    organization: The Swedish Internet Foundation
+    country: Sweden
+    email: erik.bergstrom@internetstiftelsen.se
+ -
+    ins: L. Fernandez
+    name: Leon Fernandez
+    organization: The Swedish Internet Foundation
+    country: Sweden
+    email: leon.fernandez@internetstiftelsen.se
+	
 normative:
 
 informative:
-#  gennotify:
-#    -: draft-ietf-dnsop-generalized-notify
-#    title: "Generalized DNS Notifications"
-#    target: https://datatracker.ietf.org/doc/draft-ietf-dnsop-generalized-notify
 
 --- abstract
 
