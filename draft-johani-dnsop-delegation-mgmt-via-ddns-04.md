@@ -32,7 +32,7 @@ author:
     organization: The Swedish Internet Foundation
     country: Sweden
     email: leon.fernandez@internetstiftelsen.se
-	
+
 normative:
 
 informative:
@@ -376,10 +376,15 @@ perfectly fine.
 
 ## Bootstrapping the SIG(0) Public Key Into the DNS UPDATE Receiver
 
-Bootstrap of the child public SIG(0) key to be trusted by the parent
-UPDATE Receiver may be done either manually or automatically. Manually
+Bootstrap of the child public SIG(0) key to be trusted by the UPDATE
+Receiver may be done either manually or automatically. Manually
 may in various cases be the preferred method, especially in the case
 of non-registry parents with a small number of child delegations.
+
+If the UPDATE Receiver only supports manual bootstrap, then that is
+what will happen (apart from informing the child about this
+policy). If the child wants to enforce manual bootstrap it needs to
+request this from the UPDATE Receiver.
 
 In those cases there is by definition some mechanism in place to
 communicate information from the child to the parent, be it email, a
@@ -387,23 +392,54 @@ web form, pieces of paper or something else. The same mechanism can be
 extended to also be used to communicate the initial SIG(0) public key
 from the child to the parent.
 
-### Automatic Bootstrap of the SIG(0) Public Key
+Regardless of whether manual bootstrap or automatic bootstrap is to be
+used (subject to the UPDATE Receiver policy), the bootstrap must be
+initiated. This is done by the child issuing a self-signed DNS UPDATE
+to the parent containing:
 
-Automated bootstrapping is also possible, subject to the policy of the
-parent. The basic idea is that the publish the public SIG(0) key as a
-KEY record at the child apex. Then the bootstrapping process is initiated
-by the child issuing a self-signed DNS UPDATE to the parent containing:
+    DEL child.parent. {ttl} ANY KEY 
+    ADD child.parent. {ttl} IN  KEY ... 
 
-    DEL child.parent. {ttl} ANY KEY
-    ADD child.parent. {ttl} IN  KEY ...
-
-The first record is an instruction to delete any previous keys for
-this child. The second is an instruction to add the new key 
+The first record is an instruction to delete any previous keys for 
+this child (CLASS=ANY in a DNS UPDATE is a request to delete an entire
+RRset). The second is an instruction to add the new key.
 
 When receiving such a message (where the self-signature validates) the
 parent UPDATE Reciever SHOULD mark that key as "known" (but not yet
-trusted) and put that key into a queue for later look up and
-validation of the corresponding KEY record.
+trusted) and then either put that key into a queue for later look up
+and validation of the corresponding KEY record (if supporting
+automatic bootstrap) or put that key into a queue for subsequent
+manual validation and verification.
+
+### Signalling That Manual Bootstrap is Required or Requested
+
+{{?I-D.berra-dnsop-keystate}} describes a mechanism by which the
+child may communicate "Key State" to the UPDATE Receiver. If the child
+supports this mechanism then a KeyState OPT MUST be included in the
+initial key upload (the self-signed UPDATE containing the public
+key). The child MAY include a KeyState OPT containing the KEY-STATE for
+"Manual bootstrap requested" (value=10). The UPDATE Receiver SHOULD
+honour this request and not perform automatic bootstrap for this child
+and this key.
+
+Likewise, in the response to the initial key upload, if the UPDATE
+contained a KeyState OPT, then the UPDATE Receiver has the ability to
+signal the requirement that the child SIG(0) key is manually
+bootstrapped (verified) by including a KeyState OPT containing the
+KEY-STATE for "Manual bootstrap required" (value=8). If a KeyState OPT
+from the UPDATE Receiver is included in the response then the child
+MUST validate this message using the SIG(0) public key of the UPDATE
+Receiver. If the response is unsigned it MUST be ignored. If the
+response valdiates then the child SHOULD signal this information to an
+operator, to resolve manually. 
+
+### Automatic Bootstrap of the SIG(0) Public Key
+
+Automated bootstrapping is also possible, subject to the policy of the
+UPDATE Receiver. The basic idea is to publish the public SIG(0) key as
+a KEY record at the child apex prior to the initial key upload. Then
+the UPDATE Receiver (or an agent) may look that KEY up for subsequent
+validation.
 
 ### Automatic Bootstrap When Child Zone is DNSSEC-signed
 
@@ -415,7 +451,7 @@ be looked up and validated by the DNS UPDATE Receiver.
     child.parent. IN RRSIG KEY ...
 
 In case of validation success the key SHOULD be promoted to "trusted"
-by the parent UPDATE Receiver. At this point any old keys should be deleted.
+by the UPDATE Receiver. At this point any old keys should be deleted.
 
 In case of validation failure (or absence of a DNSSEC signature) the
 SIG(0) SHOULD NOT be promoted to the set of keys that the UPDATE
@@ -479,8 +515,12 @@ public key or it could be an error in the child end losing the private
 key. Another possibility could be a key rollover that for some reason
 didn't sync correctly. 
 
+If {{?I-D.berra-dnsop-keystate}} is supported then the child can
+inquire with the UPDATE Receiver about the KeyState of the SIG(0) key
+it would use in an UPDATE request. 
+
 In all such cases, as soon as the child becomes aware of the problem
-it should simple re-bootstrap by the same mechanism as used
+it should simply re-bootstrap by the same mechanism as used
 initially. The self-signed DNS UPDATE that starts the bootstrapping
 process contains a 
 
@@ -545,12 +585,11 @@ addition of the ability to also send inquiries to the parent:
 * For the child to inquire about things: "Do you (parent) support
   automatic bootstrapping or not?"
   
-For this reason {{?I-D.berra-dnsop-opt-state}} is being proposed as
-a mechanism to improve the communication between child and parent for
-the purpose of automatic delegation synchronization.
-
-Both of the above examples would travel as a new "state codes" in an
-OPT code (for "State") as specified in the above draft.
+{{?I-D.berra-dnsop-keystate}} is being proposed as a mechanism to
+improve the communication between child and parent, both in the error
+case and in the inquiry case. If that draft is supported then all of
+the above examples would travel as a new "KeyState codes" in a
+KeyState OPT as specified in {{?I-D.berra-dnsop-keystate}}.
 
 # Scalability Considerations
 
