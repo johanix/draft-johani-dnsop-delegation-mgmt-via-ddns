@@ -418,7 +418,7 @@ child may communicate "Key State" to the UPDATE Receiver. If the child
 supports this mechanism then a KeyState OPT MUST be included in the
 initial key upload (the self-signed UPDATE containing the public
 key). The child MAY include a KeyState OPT containing the KEY-STATE for
-"Manual bootstrap requested" (value=10). The UPDATE Receiver SHOULD
+"Manual bootstrap requested" (value=1). The UPDATE Receiver SHOULD
 honour this request and not perform automatic bootstrap for this child
 and this key.
 
@@ -426,7 +426,7 @@ Likewise, in the response to the initial key upload, if the UPDATE
 contained a KeyState OPT, then the UPDATE Receiver has the ability to
 signal the requirement that the child SIG(0) key is manually
 bootstrapped (verified) by including a KeyState OPT containing the
-KEY-STATE for "Manual bootstrap required" (value=8). If a KeyState OPT
+KEY-STATE for "Manual bootstrap required" (value=11). If a KeyState OPT
 from the UPDATE Receiver is included in the response then the child
 MUST validate this message using the SIG(0) public key of the UPDATE
 Receiver. If the response is unsigned it MUST be ignored. If the
