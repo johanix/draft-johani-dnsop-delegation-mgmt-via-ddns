@@ -147,7 +147,7 @@ ignore it. But if the recipient does listen to the NOTIFY it should
 make its own lookups to verify what has changed and whether that
 should trigger any changes in the DNS data provided by the recipient.
 
-## Differencies between NOTIFY and UPDATE
+## Differences between NOTIFY and UPDATE
 
 The difference between the UPDATE and the NOTIFY is that the UPDATE
 contains the exact change that should (in the opinion of the sender)
