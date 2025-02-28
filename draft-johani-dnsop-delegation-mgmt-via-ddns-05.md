@@ -1,7 +1,7 @@
 ---
 title: "Automating DNS Delegation Management via DDNS"
 abbrev: DDNS Updates of Delegation Information
-docname: draft-johani-dnsop-delegation-mgmt-via-ddns-04
+docname: draft-johani-dnsop-delegation-mgmt-via-ddns-05
 date: {DATE}
 category: std
 
@@ -58,7 +58,7 @@ This document proposes such a mechanism.
 TO BE REMOVED: This document is being collaborated on in Github at:
 [https://github.com/johanix/draft-johani-dnsop-delegation-mgmt-via-ddns](https://github.com/johanix/draft-johani-dnsop-delegation-mgmt-via-ddns).
 The most recent working version of the document, open issues, etc, should all be
-available there.  The author (gratefully) accept pull requests.
+available there.  The authors (gratefully) accept pull requests.
 
 --- middle
 
@@ -585,11 +585,34 @@ addition of the ability to also send inquiries to the parent:
 * For the child to inquire about things: "Do you (parent) support
   automatic bootstrapping or not?"
   
-{{?I-D.berra-dnsop-keystate}} is being proposed as a mechanism to
+{{?I-D.berra-dnsop-keystate}} is proposed as a mechanism to
 improve the communication between child and parent, both in the error
 case and in the inquiry case. If that draft is supported then all of
 the above examples would travel as a new "KeyState codes" in a
 KeyState OPT as specified in {{?I-D.berra-dnsop-keystate}}.
+
+## Mutual Authentication 
+
+In a traditional DNS UPDATE only the sender (i.e. the child in this case)
+of the UPDATE is providing information. The receiver is only a consumer of
+the information (assuming that the receiver able to validate the SIG(0) 
+signature of the sender, and that the UPDATE adheres to policy, etc).
+
+However, in the proposed mechanism with the new KeyState OPT the
+UPDATE Receiver can also send information back to the sender (the child). One
+example is details about the SIG(0) key bootstrap policy of the parent.
+This opens up the possibility for an adversary to potentially cause disruption
+by sending forged responses to the child.
+
+For this reason the current proposal is that the UPDATE Receiver also maintains 
+a SIG(0) key pair, including publication of the public key in DNS. This key 
+is then used to sign responses to the child. This requires that the child
+goes though a similar bootstrap process to get the public key of the UPDATE
+Receiver as the parent does.
+
+Once such bootstrap is complete the child can use the public key of the
+UPDATE Receiver to verify the authenticity of responses from the UPDATE
+Receiver, thereby making the mutual authentication complete.
 
 # Scalability Considerations
 
@@ -629,7 +652,7 @@ opens up a potential vulnerability should the mechanism not be
 implemented correctly. 
 
 In this case the definition of "correct" is a question for the
-receiver of the DNS UPDATE. The receiver should validate the
+receiver of the DNS UPDATE. The receiver should verify the
 authenticity of the DNS UPDATE and then do the same checks and
 verifications as a CDS or CSYNC scanner does. The difference from the
 scanner is only in the validation: single SIG(0) signature by a key
@@ -677,6 +700,14 @@ Reference
 --- back
 
 # Change History (to be removed before publication)
+
+* draft-johani-dnsop-delegation-mgmt-via-ddns-05
+
+> Fixed typos in the KeyState OPT section.
+
+> Added a section on mutual authentication.
+
+> Fixed spelling errors.
 
 * draft-johani-dnsop-delegation-mgmt-via-ddns-04
 
